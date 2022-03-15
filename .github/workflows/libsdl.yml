@@ -1,0 +1,85 @@
+name: Build libSDL
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 1'
+
+jobs:
+  build:
+    name: ${{ matrix.platform.name }}
+    runs-on: ${{ matrix.platform.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { name: Windows (x64), os: windows-latest, shell: pwsh, flags: -A x64,                  archive: ZIP }
+          - { name: Linux,         os: ubuntu-20.04,   shell: sh,   flags: -G 'Ninja Multi-Config', archive: TGZ }
+          - { name: MacOS,         os: macos-latest,   shell: sh,   flags: -G Xcode,                archive: TGZ }
+
+    steps:
+      - name: Setup Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install wayland-protocols \
+          pkg-config \
+          ninja-build \
+          libasound2-dev \
+          libdbus-1-dev \
+          libegl1-mesa-dev \
+          libgl1-mesa-dev \
+          libgles2-mesa-dev \
+          libglu1-mesa-dev \
+          libibus-1.0-dev \
+          libpulse-dev \
+          libsdl2-2.0-0 \
+          libsndio-dev \
+          libudev-dev \
+          libwayland-dev \
+          libwayland-client++0 \
+          wayland-scanner++ \
+          libwayland-cursor++0 \
+          libx11-dev \
+          libxcursor-dev \
+          libxext-dev \
+          libxi-dev \
+          libxinerama-dev \
+          libxkbcommon-dev \
+          libxrandr-dev \
+          libxss-dev \
+          libxt-dev \
+          libxv-dev \
+          libxxf86vm-dev \
+          libdrm-dev \
+          libgbm-dev \
+          libpulse-dev \
+          libpango1.0-dev
+          sudo apt install meson
+          git clone --depth 1 https://gitlab.gnome.org/jadahl/libdecor.git --branch 0.1.0
+          cd libdecor
+          meson build --buildtype release -Ddemo=false -Ddbus=disabled
+          ninja -C build
+          sudo meson install -C build
+
+      - uses: actions/checkout@v3
+        with:
+          repository: 'libsdl-org/SDL'
+          ref: 'release-2.0.20'
+          path: 'libSDL'
+
+      - name: Configure CMake
+        run: cmake -S libSDL -B build -DSDL_TEST=OFF ${{ matrix.platform.flags }} -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install"
+
+      - name: Build Debug
+        run: cmake --build build/ --config Debug --target install
+
+      - name: Build Release
+        run: cmake --build build/ --config Release --target install
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: libSDL-${{ matrix.platform.os }}
+          path: install/*
