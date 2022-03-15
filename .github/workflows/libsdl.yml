@@ -73,10 +73,10 @@ jobs:
         run: cmake -S libSDL -B build -DSDL_TEST=OFF ${{ matrix.platform.flags }} -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install"
 
       - name: Build Debug
-        run: cmake --build build/ --config Debug --target install
+        run: cmake --build build/ --config Debug --target install --parallel 4
 
       - name: Build Release
-        run: cmake --build build/ --config Release --target install
+        run: cmake --build build/ --config Release --target install --parallel 4
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v2

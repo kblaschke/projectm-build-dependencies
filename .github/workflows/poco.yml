@@ -22,7 +22,7 @@ jobs:
       - name: Setup Windows dependencies
         if: runner.os == 'Windows'
         run: |
-          choco install openssl
+          choco install openssl --no-progress
 
       - name: Setup Linux dependencies
         if: runner.os == 'Linux'
@@ -32,7 +32,10 @@ jobs:
       - name: Setup MacOS dependencies
         if: runner.os == 'MacOS'
         run: |
-          brew install openssl
+          brew update
+          brew reinstall openssl@1.1
+          echo "OPENSSL_ROOT_DIR=/usr/local/opt/openssl@1.1" >> $GITHUB_ENV
+          echo "/usr/local/opt/openssl@1.1" >> $GITHUB_PATH
 
       - uses: actions/checkout@v3
         with:
@@ -45,9 +48,8 @@ jobs:
           cmake -S poco -B build ${{ matrix.platform.flags }}
           -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install"
           -DBUILD_SHARED_LIBS=NO
-          -DPOCO_DISABLE_INTERNAL_OPENSSL=NO
           -DFORCE_OPENSSL=YES
-          -DENABLE_ACTIVERECORD==NO
+          -DENABLE_ACTIVERECORD=NO
           -DENABLE_ACTIVERECORD_COMPILER=NO
           -DENABLE_APACHECONNECTOR=NO
           -DENABLE_CPPPARSER=NO
@@ -60,6 +62,7 @@ jobs:
           -DENABLE_ENCODINGS_COMPILER=NO
           -DENABLE_FOUNDATION=YES
           -DENABLE_JSON=YES
+          -DENABLE_JWT=YES
           -DENABLE_MONGODB=NO
           -DENABLE_NET=YES
           -DENABLE_NETSSL=YES
@@ -76,10 +79,10 @@ jobs:
           -DPOCO_UNBUNDLED=NO
 
       - name: Build Debug
-        run: cmake --build build/ --config Debug --target install
+        run: cmake --build build/ --config Debug --target install --parallel 4
 
       - name: Build Release
-        run: cmake --build build/ --config Release --target install
+        run: cmake --build build/ --config Release --target install --parallel 4
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v2
