@@ -1,0 +1,88 @@
+name: Build POCO Libraries
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 1'
+
+jobs:
+  build:
+    name: ${{ matrix.platform.name }}
+    runs-on: ${{ matrix.platform.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { name: Windows (x64), os: windows-latest, shell: pwsh, flags: -A x64 }
+          - { name: Linux,         os: ubuntu-20.04,   shell: sh,   flags: -G 'Ninja Multi-Config' }
+          - { name: MacOS,         os: macos-latest,   shell: sh,   flags: -G Xcode }
+
+    steps:
+      - name: Setup Windows dependencies
+        if: runner.os == 'Windows'
+        run: |
+          choco install openssl
+
+      - name: Setup Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          (sudo apt-get -y update || true) && sudo apt-get install libssl-dev ninja-build
+
+      - name: Setup MacOS dependencies
+        if: runner.os == 'MacOS'
+        run: |
+          brew install openssl
+
+      - uses: actions/checkout@v3
+        with:
+          repository: 'pocoproject/poco'
+          ref: 'poco-1.11.2'
+          path: 'poco'
+
+      - name: Configure CMake
+        run: >
+          cmake -S poco -B build ${{ matrix.platform.flags }}
+          -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install"
+          -DBUILD_SHARED_LIBS=NO
+          -DPOCO_DISABLE_INTERNAL_OPENSSL=NO
+          -DFORCE_OPENSSL=YES
+          -DENABLE_ACTIVERECORD==NO
+          -DENABLE_ACTIVERECORD_COMPILER=NO
+          -DENABLE_APACHECONNECTOR=NO
+          -DENABLE_CPPPARSER=NO
+          -DENABLE_CRYPTO=YES
+          -DENABLE_DATA=ON
+          -DENABLE_DATA_MYSQL=NO
+          -DENABLE_DATA_ODBC=NO
+          -DENABLE_DATA_POSTGRESQL=NO
+          -DENABLE_ENCODINGS=YES
+          -DENABLE_ENCODINGS_COMPILER=NO
+          -DENABLE_FOUNDATION=YES
+          -DENABLE_JSON=YES
+          -DENABLE_MONGODB=NO
+          -DENABLE_NET=YES
+          -DENABLE_NETSSL=YES
+          -DENABLE_PAGECOMPILER=NO
+          -DENABLE_PAGECOMPILER_FILE2PAGE=NO
+          -DENABLE_PDF=NO
+          -DENABLE_POCODOC=NO
+          -DENABLE_REDIS=NO
+          -DENABLE_SEVENZIP=NO
+          -DENABLE_TESTS=NO
+          -DENABLE_UTIL=YES
+          -DENABLE_XML=YES
+          -DENABLE_ZIP=YES
+          -DPOCO_UNBUNDLED=NO
+
+      - name: Build Debug
+        run: cmake --build build/ --config Debug --target install
+
+      - name: Build Release
+        run: cmake --build build/ --config Release --target install
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: poco-${{ matrix.platform.os }}
+          path: install/*
