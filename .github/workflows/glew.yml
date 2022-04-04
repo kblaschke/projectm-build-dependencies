@@ -1,0 +1,29 @@
+name: Build GLEW
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 1'
+
+jobs:
+  build:
+    name: ${{ matrix.platform.name }}
+    runs-on: ${{ matrix.platform.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { name: Windows (x64), os: windows-latest, shell: pwsh, flags: -A x64, archive: ZIP }
+    steps:
+      - name: Build GLEW with vcpkg
+        run: vcpkg install glew:x64-windows
+
+      - name: Export GLEW package
+        run: vcpkg export glew:x64-windows --zip
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: glew-${{ matrix.platform.os }}
+          path: C:/vcpkg/vcpkg-export-*
